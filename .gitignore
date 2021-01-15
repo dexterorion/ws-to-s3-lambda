@@ -1,0 +1,6 @@
+.env
+credenciados.xml
+pagamentos.xml
+saidas.xml
+*.zip
+main
