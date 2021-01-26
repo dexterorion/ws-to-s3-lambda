@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
-	runtime "github.com/aws/aws-lambda-go/lambda"
-	"github.com/dexterorion/ws-to-s3-lambda/s3"
-	"github.com/dexterorion/ws-to-s3-lambda/soap"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-lambda-go/events"
+	runtime "github.com/aws/aws-lambda-go/lambda"
+	"github.com/dexterorion/ws-to-s3-lambda/s3"
+	"github.com/dexterorion/ws-to-s3-lambda/soap"
+	"github.com/dexterorion/ws-to-s3-lambda/sqs"
+	"go.uber.org/zap"
 )
 
 var (
@@ -23,7 +25,14 @@ var (
 	saidasBucket       = os.Getenv("BUCKET_SAIDAS")
 	credenciadosBucket = os.Getenv("BUCKET_CREDENCIADOS")
 
-	filial = os.Getenv("FILIAL")
+	filial      = os.Getenv("FILIAL")
+	parkingID   = os.Getenv("PARKING_ID")
+	parkingName = os.Getenv("PARKING_NAME")
+	parkingSlug = os.Getenv("PARKING_SLUG")
+
+	pagamentosType   = "pagamentos"
+	credenciadosType = "credenciados"
+	saidasType       = "saidas"
 
 	ws     string = os.Getenv("WS")
 	action string = os.Getenv("action")
@@ -81,6 +90,20 @@ func readfile(filepath string, startDate, endDate time.Time) ([]byte, error) {
 	return response, nil
 }
 
+func sendMessage(bucket, filename, processType string) error {
+	message := sqs.UploadedFileMessage{
+		Bucket:      bucket,
+		Filename:    filename,
+		Type:        processType,
+		ParkingID:   parkingID,
+		ParkingName: parkingName,
+		ParkingSlug: parkingSlug,
+	}
+
+	return message.Send()
+
+}
+
 func saveResponse(bucket, filename string, body []byte) error {
 	return s3.Upload(bucket, filename, body)
 }
@@ -92,8 +115,13 @@ func getPagamentos(startDate, endDate time.Time) error {
 		return err
 	}
 
-	responseFile := fmt.Sprintf("pagamentos-%s-%s.xml", startDate.String(), endDate.String())
+	responseFile := fmt.Sprintf("pagamentos-%s-%s-%s.xml", parkingSlug, startDate.String(), endDate.String())
 	err = saveResponse(pagamentosBucket, responseFile, response)
+	if err != nil {
+		return err
+	}
+
+	err = sendMessage(pagamentosBucket, responseFile, pagamentosType)
 	if err != nil {
 		return err
 	}
@@ -109,8 +137,13 @@ func getSaidas(startDate, endDate time.Time) error {
 		return err
 	}
 
-	responseFile := fmt.Sprintf("saidas-%s-%s.xml", startDate.String(), endDate.String())
+	responseFile := fmt.Sprintf("saidas-%s-%s-%s.xml", parkingSlug, startDate.String(), endDate.String())
 	err = saveResponse(saidasBucket, responseFile, response)
+	if err != nil {
+		return err
+	}
+
+	err = sendMessage(saidasBucket, responseFile, saidasType)
 	if err != nil {
 		return err
 	}
@@ -127,8 +160,13 @@ func getCredenciados() error {
 		return err
 	}
 
-	responseFile := fmt.Sprintf("credenciados-%s-%s.xml", unused.String(), unused.String())
+	responseFile := fmt.Sprintf("credenciados-%s-%s-%s.xml", parkingSlug, unused.String(), unused.String())
 	err = saveResponse(credenciadosBucket, responseFile, response)
+	if err != nil {
+		return err
+	}
+
+	err = sendMessage(credenciadosBucket, responseFile, credenciadosType)
 	if err != nil {
 		return err
 	}

@@ -3,18 +3,19 @@ package s3
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"net/http"
-	"os"
 )
 
 var (
-	S3_REGION  = os.Getenv("AWS_REGION")
-	AWS_KEY    = os.Getenv("AWS_ACCESS_KEY_ID")
-	AWS_SECRET = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	S3_REGION  = os.Getenv("BUCKET_REGION")
+	AWS_KEY    = os.Getenv("ACCESS_KEY")
+	AWS_SECRET = os.Getenv("SECRET_ACCESS")
 )
 
 func Upload(bucket string, filename string, buffer []byte) error {
